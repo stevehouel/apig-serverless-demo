@@ -5,35 +5,117 @@ Description: >
 
   Sample SAM Template for sample-app
 
+Parameters:
+  ProjectName:
+    Description: The name of the project
+    Default: aws-fr-houes-id-serverless
+    Type: String
+  StageName:
+    Description: The name of the stage, e.g. "dev", "preprod", "prod"
+    Default: dev
+    Type: String
+
 # More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
     Timeout: 3
 
 Resources:
-  HelloWorldFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+  # API Management
+  ApiGatewayRestApi:
+    Type: AWS::Serverless::Api
     Properties:
-      CodeUri: hello_world/
+      Name: !Sub ${ProjectName}-${StageName}
+      StageName: !Ref StageName
+      TracingEnabled: true
+      EndpointConfiguration: Regional
+      AccessLogSetting:
+        DestinationArn: !GetAtt ApiLogGroup.Arn
+        Format: "{ 'requestId':'$context.requestId', 'ip': '$context.identity.sourceIp', 'caller':'$context.identity.caller', 'user':'$context.identity.user', 'user-agent':'$context.identity.userAgent', 'identity-id':'$context.identity.cognitoIdentityId', 'requestTime':'$context.requestTime', 'httpMethod':'$context.httpMethod','resourcePath':'$context.resourcePath', 'status':'$context.status','protocol':'$context.protocol', 'responseLength':'$context.responseLength' }"
+      DefinitionBody:
+        Fn::Transform:
+          Name: AWS::Include
+          Parameters:
+            Location: specs/swagger.yaml
+
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '${ProjectName}-${StageName}'
+
+  ApiSettings:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !GetAtt CloudWatchRole.Arn
+
+  # IAM Roles & Policies
+  CloudWatchRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub '${ProjectName}-${StageName}-api-logs-write'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - apigateway.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Path: /
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+
+  # Table
+  Table:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-${StageName}'
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: "pk"
+          KeyType: HASH
+        - AttributeName: "sk"
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+
+  # Functions
+  CreateSentimentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      FunctionName: !Sub '${ProjectName}-${StageName}-GetAllUsers'
       Handler: app.lambda_handler
+      Description: Create sentiment analysis from a given sentence
       Runtime: python3.8
+      Timeout: 2
+      MemorySize: 256
+      Tracing: Active
+      AutoPublishAlias: live
       Events:
-        HelloWorld:
-          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+        Resource:
+          Type: Api
           Properties:
-            Path: /hello
-            Method: get
+            RestApiId: !Ref ApiGatewayRestApi
+            Path: /sentiment
+            Method: post
+
 
 Outputs:
-  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
-  # Find out more about other implicit resources you can reference within SAM
-  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  HelloWorldApi:
-    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
-  HelloWorldFunction:
-    Description: "Hello World Lambda Function ARN"
-    Value: !GetAtt HelloWorldFunction.Arn
-  HelloWorldFunctionIamRole:
-    Description: "Implicit IAM Role created for Hello World function"
-    Value: !GetAtt HelloWorldFunctionRole.Arn
+  RestApi:
+    Description: "API Gateway endpoint URL"
+    Value:
+      Fn::Join:
+        - ""
+        - - "https://"
+          - Ref: ApiGatewayRestApi
+          - ".execute-api."
+          - Ref: "AWS::Region"
+          - ".amazonaws.com/"
+          - Ref: StageName
+  ApiGatewayRestApi:
+    Value: !Ref ApiGatewayRestApi
+    Description: Name of the ApiGatewayRestApi
