@@ -1,0 +1,15 @@
+{
+  "Parameters": {
+    "ProjectName": "edf-ba-app",
+    "StageName": "np-dev",
+    "TableName": "table-edf-ba-data-np-dev",
+    "IndexName": "lsi-edf-ba-data-np-dev-datefact",
+    "WebAclId": "86581f65-17e2-4568-89dc-00320def3934",
+    "DataKeyArn": "arn:aws:kms:eu-west-1:026077384863:key/3752ecb5-2605-4fe3-99ac-dc99fe3bb0d0",
+    "HostZoneId": "Z1CYL3CT0Z4UJR",
+    "DomainName": "dev.mon-bilan-annuel-edf.fr",
+    "AcmCertificateArn": "arn:aws:acm:eu-west-1:026077384863:certificate/93c637c2-3bd2-45df-b763-8cb95bb532fa",
+    "LogsBucketArn": "arn:aws:s3:::s3-eu-west-1-edf-ba-logs-np-dev-logs",
+    "LogsBucketKeyArn": "arn:aws:kms:eu-west-1:026077384863:key/f7afa3fa-cd6a-467c-8976-ca92d9b05b77"
+  }
+}

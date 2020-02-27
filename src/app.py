@@ -1,42 +1,22 @@
-import json
+import os, boto3, json
 
-# import requests
+ESCALATION_INTENT_MESSAGE="Seems that you are having troubles with our service. Would you like to be transferred to the associate?"
+FULFILMENT_CLOSURE_MESSAGE="Seems that you are having troubles with our service. Let me transfer you to the associate."
 
+escalation_intent_name = 'Escalate'
+client = boto3.client('comprehend')
 
 def lambda_handler(event, context):
-    """Sample pure Lambda function
+    # Get body content
+    body = event.get('body')
+    body = json.loads(body)
 
-    Parameters
-    ----------
-    event: dict, required
-        API Gateway Lambda Proxy Input Format
-
-        Event doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
-
-    context: object, required
-        Lambda Context runtime methods and attributes
-
-        Context doc: https://docs.aws.amazon.com/lambda/latest/dg/python-context-object.html
-
-    Returns
-    ------
-    API Gateway Lambda Proxy Output Format: dict
-
-        Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
-    """
-
-    # try:
-    #     ip = requests.get("http://checkip.amazonaws.com/")
-    # except requests.RequestException as e:
-    #     # Send some context about this error to Lambda Logs
-    #     print(e)
-
-    #     raise e
-
+    sentiment=client.detect_sentiment(Text=body.get('message'),LanguageCode='fr')
     return {
-        "statusCode": 200,
-        "body": json.dumps({
-            "message": "hello world",
-            # "location": ip.text.replace("\n", "")
-        }),
-    }
+       'statusCode': status,
+       'body': json.dumps(sentiment, indent=2),
+       'headers': {
+           'Content-Type': 'application/json',
+           'Access-Control-Allow-Origin': '*'
+       },
+   }

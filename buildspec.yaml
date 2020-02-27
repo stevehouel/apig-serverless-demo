@@ -1,0 +1,24 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      python: 3.8
+  pre_build:
+    commands:
+      - pip install --upgrade pip
+  build:
+    commands:
+      - make build
+      - make copy-specs
+  post_build:
+    commands:
+      - make package STAGE_NAME=$STAGE
+cache:
+  paths:
+    - '.venv/**/*'
+artifacts:
+  type: zip
+  files:
+    - template.yml
+    - packaged.yaml
+    - 'cfn/**/*'

@@ -65,29 +65,12 @@ Resources:
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
 
-  # Table
-  Table:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: !Sub '${ProjectName}-${StageName}'
-      AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
-      KeySchema:
-        - AttributeName: "pk"
-          KeyType: HASH
-        - AttributeName: "sk"
-          KeyType: RANGE
-      BillingMode: PAY_PER_REQUEST
-
   # Functions
   CreateSentimentFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src/
-      FunctionName: !Sub '${ProjectName}-${StageName}-GetAllUsers'
+      FunctionName: !Sub '${ProjectName}-${StageName}-CreateSentiment'
       Handler: app.lambda_handler
       Description: Create sentiment analysis from a given sentence
       Runtime: python3.8
@@ -95,6 +78,20 @@ Resources:
       MemorySize: 256
       Tracing: Active
       AutoPublishAlias: live
+      DeploymentPreference:
+        Type: Linear10PercentEvery1Minute
+        Alarms:
+          # A list of alarms that you want to monitor
+          - !Ref CreateSentimentAliasErrorMetricGreaterThanZeroAlarm
+          - !Ref CreateSentimentLatestVersionErrorMetricGreaterThanZeroAlarm
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "comprehend:DetectDominantLanguage"
+                - "comprehend:DetectSentiment"
+              Resource: '*'
       Events:
         Resource:
           Type: Api
@@ -103,6 +100,41 @@ Resources:
             Path: /sentiment
             Method: post
 
+  CreateSentimentAliasErrorMetricGreaterThanZeroAlarm:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmDescription: Lambda Function Error > 0
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: Resource
+          Value: !Sub "${CreateSentimentFunction}:live"
+        - Name: FunctionName
+          Value: !Ref CreateSentimentFunction
+      EvaluationPeriods: 2
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Sum
+      Threshold: 0
+
+  CreateSentimentLatestVersionErrorMetricGreaterThanZeroAlarm:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmDescription: Lambda Function Error > 0
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: Resource
+          Value: !Sub "${CreateSentimentFunction}:live"
+        - Name: FunctionName
+          Value: !Ref CreateSentimentFunction
+        - Name: ExecutedVersion
+          Value: !GetAtt CreateSentimentFunction.Version.Version
+      EvaluationPeriods: 2
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Sum
+      Threshold: 0
 
 Outputs:
   RestApi:

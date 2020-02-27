@@ -1,0 +1,164 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'sample-app
+
+  Sample SAM Template for sample-app
+
+  '
+Parameters:
+  ProjectName:
+    Description: The name of the project
+    Default: aws-fr-houes-id-serverless
+    Type: String
+  StageName:
+    Description: The name of the stage, e.g. "dev", "preprod", "prod"
+    Default: dev
+    Type: String
+Globals:
+  Function:
+    Timeout: 3
+Resources:
+  ApiGatewayRestApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name:
+        Fn::Sub: ${ProjectName}-${StageName}
+      StageName:
+        Ref: StageName
+      TracingEnabled: true
+      EndpointConfiguration: Regional
+      AccessLogSetting:
+        DestinationArn:
+          Fn::GetAtt:
+          - ApiLogGroup
+          - Arn
+        Format: '{ ''requestId'':''$context.requestId'', ''ip'': ''$context.identity.sourceIp'',
+          ''caller'':''$context.identity.caller'', ''user'':''$context.identity.user'',
+          ''user-agent'':''$context.identity.userAgent'', ''identity-id'':''$context.identity.cognitoIdentityId'',
+          ''requestTime'':''$context.requestTime'', ''httpMethod'':''$context.httpMethod'',''resourcePath'':''$context.resourcePath'',
+          ''status'':''$context.status'',''protocol'':''$context.protocol'', ''responseLength'':''$context.responseLength''
+          }'
+      DefinitionBody:
+        Fn::Transform:
+          Name: AWS::Include
+          Parameters:
+            Location: s3://s3-eu-west-1-sample-app-dev-build-resources/f891eaebd5972d2f5121b7d4c4363ee8
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: ${ProjectName}-${StageName}
+  ApiSettings:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn:
+        Fn::GetAtt:
+        - CloudWatchRole
+        - Arn
+  CloudWatchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Fn::Sub: ${ProjectName}-${StageName}-api-logs-write
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - apigateway.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+  CreateSentimentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://s3-eu-west-1-sample-app-dev-build-resources/d80059b7c8bab46aa6ef3b5bd407d771
+      FunctionName:
+        Fn::Sub: ${ProjectName}-${StageName}-CreateSentiment
+      Handler: app.lambda_handler
+      Description: Create sentiment analysis from a given sentence
+      Runtime: python3.8
+      Timeout: 2
+      MemorySize: 256
+      Tracing: Active
+      AutoPublishAlias: live
+      DeploymentPreference:
+        Type: Linear10PercentEvery1Minute
+        Alarms:
+        - Ref: CreateSentimentAliasErrorMetricGreaterThanZeroAlarm
+        - Ref: CreateSentimentLatestVersionErrorMetricGreaterThanZeroAlarm
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - comprehend:DetectDominantLanguage
+          - comprehend:DetectSentiment
+          Resource: '*'
+      Events:
+        Resource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ApiGatewayRestApi
+            Path: /sentiment
+            Method: post
+  CreateSentimentAliasErrorMetricGreaterThanZeroAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Lambda Function Error > 0
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+      - Name: Resource
+        Value:
+          Fn::Sub: ${CreateSentimentFunction}:live
+      - Name: FunctionName
+        Value:
+          Ref: CreateSentimentFunction
+      EvaluationPeriods: 2
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Sum
+      Threshold: 0
+  CreateSentimentLatestVersionErrorMetricGreaterThanZeroAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Lambda Function Error > 0
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+      - Name: Resource
+        Value:
+          Fn::Sub: ${CreateSentimentFunction}:live
+      - Name: FunctionName
+        Value:
+          Ref: CreateSentimentFunction
+      - Name: ExecutedVersion
+        Value:
+          Fn::GetAtt:
+          - CreateSentimentFunction
+          - Version.Version
+      EvaluationPeriods: 2
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Sum
+      Threshold: 0
+Outputs:
+  RestApi:
+    Description: API Gateway endpoint URL
+    Value:
+      Fn::Join:
+      - ''
+      - - https://
+        - Ref: ApiGatewayRestApi
+        - .execute-api.
+        - Ref: AWS::Region
+        - .amazonaws.com/
+        - Ref: StageName
+  ApiGatewayRestApi:
+    Value:
+      Ref: ApiGatewayRestApi
+    Description: Name of the ApiGatewayRestApi

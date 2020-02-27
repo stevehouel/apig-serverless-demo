@@ -1,0 +1,10 @@
+{
+  "Parameters": {
+    "ProjectName": "edf-ba-app",
+    "StageName": "dev",
+    "TableName": "table-edf-ba-data-dev",
+    "IndexName": "lsi-edf-ba-data-dev-datefact",
+    "WebAclId": "769eb98f-bbf6-46a6-81a6-7e1c5a0fb172",
+    "DataKeyArn": "arn:aws:kms:eu-west-1:706017326347:key/db99ed85-8482-43ba-84eb-dc028939878e"
+  }
+}
