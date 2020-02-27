@@ -8,7 +8,7 @@ def lambda_handler(event, context):
 
     sentiment=client.detect_sentiment(Text=body,LanguageCode='fr')
     return {
-       'statusCode': status,
+       'statusCode': 200,
        'body': json.dumps(sentiment, indent=2),
        'headers': {
            'Content-Type': 'application/json',
