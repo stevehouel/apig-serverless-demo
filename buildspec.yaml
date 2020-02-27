@@ -6,6 +6,8 @@ phases:
   pre_build:
     commands:
       - pip install --upgrade pip
+      - pip install --update awscli
+      - pip install --upgrade aws-sam-cli
   build:
     commands:
       - make build
