@@ -74,7 +74,7 @@ Resources:
   CreateSentimentFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://s3-eu-west-1-sample-app-dev-build-resources/d80059b7c8bab46aa6ef3b5bd407d771
+      CodeUri: s3://s3-eu-west-1-sample-app-dev-build-resources/365cc93b8a009c5d7d835d7cdd25f3fc
       FunctionName:
         Fn::Sub: ${ProjectName}-${StageName}-CreateSentiment
       Handler: app.lambda_handler
