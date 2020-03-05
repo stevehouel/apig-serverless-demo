@@ -12,7 +12,6 @@ export PATH := var:$(PATH):$(VENV_DIR)/bin
 export DEBUG_LOG := true
 
 export AWS_SAM_LOCAL := true
-export WEBACL_ID := 769eb98f-bbf6-46a6-81a6-7e1c5a0fb172
 
 .DEFAULT_GOAL := lint
 .PHONY: lint test upload clean bootstrap
@@ -27,9 +26,7 @@ PIPELINE_CFN_PARAMS := ProjectName=$(PROJECT_NAME) \
         StageName=$(STAGE_NAME) \
 
 CFN_PARAMS := ProjectName=$(PROJECT_NAME) \
-		StageName=$(STAGE_NAME) \
-		DebugLog=$(DEBUG_LOG) \
-		WebAclId=$(WEBACL_ID)
+		StageName=$(STAGE_NAME)
 
 TAGS_PARAMS := "project"="${PROJECT_NAME}" \
         "owner"="houes" \
